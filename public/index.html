@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donation Widget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        .donation-container {
+          position: fixed;
+          bottom: 20px;
+          left: 30px; /* отступ от левого края */
+          transform: none; /* отключаем центрирование */
+          background-color: rgba(0, 0, 0, 0.9);
+          color: white;
+          padding: 15px 30px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start; /* 🔁 добавь это */
+          min-width: 300px;
+          max-width: 600px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          opacity: 1;
+        }
+
+
+        .donation-content {
+          animation: fadeInOut 5s ease-in-out;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+
+        @keyframes fadeInOut {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            15% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            85% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        .money-icon {
+            font-size: 32px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+
+        .donation-info {
+            flex: 1;
+        }
+
+        .donor-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #4CAF50;
+        }
+
+        .donation-amount {
+            font-size: 18px;
+            color: #FFD700;
+        }
+
+        .donation-message {
+            font-size: 14px;
+            color: #e0e0e0;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .error-message {
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+        }
+
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+
+        .status-indicator.error {
+            background-color: #f44336;
+            box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="donationDisplay"></div>
+    <div id="errorMessage" class="error-message"></div>
+    <div id="statusIndicator" class="status-indicator"></div>
+
+    <script>
+        // Конфигурация
+        const CONFIG = {
+            // URL вашего API эндпоинта на Vercel
+            apiEndpoint: '/api/donations',
+            // Интервал обновления в миллисекундах (30 секунд)
+            updateInterval: 30000,
+            // Время показа одного доната в миллисекундах (5 секунд)
+            displayDuration: 5000,
+            // Максимальное количество попыток при ошибке
+            maxRetries: 3,
+            // Задержка между попытками (в миллисекундах)
+            retryDelay: 5000
+        };
+
+        // Валюты и их символы
+        const currencySymbols = {
+            'USD': '$',
+            'EUR': '€',
+            'RUB': '₽',
+            'UAH': '₴',
+            'BRL': 'R$',
+            'TRY': '₺',
+            'KZT': '₸'
+        };
+
+        let donations = [];
+        let currentIndex = 0;
+        let isDisplaying = false;
+        let retryCount = 0;
+        let lastDonationId = null;
+
+        // Функция показа ошибки
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            const statusEl = document.getElementById('statusIndicator');
+            
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            statusEl.classList.add('error');
+            
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // Функция обновления статуса
+        function updateStatus(isOk) {
+            const statusEl = document.getElementById('statusIndicator');
+            if (isOk) {
+                statusEl.classList.remove('error');
+                retryCount = 0;
+            } else {
+                statusEl.classList.add('error');
+            }
+        }
+
+        // Функция получения донатов
+       async function fetchDonations() {
+            try {
+                const response = await fetch(CONFIG.apiEndpoint);
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                const data = await response.json();
+
+                const newDonations = data.data || [];
+
+                if (newDonations.length > 0) {
+                    donations = newDonations;
+                    if (!isDisplaying) displayNextDonation();
+                }
+
+                    updateStatus(true);
+            } catch (error) {
+                console.error('Error fetching donations:', error);
+                updateStatus(false);
+
+                if (retryCount < CONFIG.maxRetries) {
+                    retryCount++;
+                    showError(`Ошибка получения данных. Попытка ${retryCount} из ${CONFIG.maxRetries}`);
+                    setTimeout(fetchDonations, CONFIG.retryDelay);
+                } else {
+                    showError('Не удалось получить данные о донатах.');
+                }
+            }
+        }
+
+
+        // Функция отображения следующего доната
+        function displayNextDonation() {
+            if (donations.length === 0) {
+                isDisplaying = false;
+                return;
+            }    
+
+        isDisplaying = true;
+        const donation = donations[currentIndex];
+        const currencySymbol = currencySymbols[donation.currency] || donation.currency;
+    
+        const donationElement = document.createElement('div');
+        donationElement.className = 'donation-container';
+
+        donationElement.innerHTML = `
+            <div class="donation-content">
+                <div class="money-icon">💰</div>
+                <div class="donation-info">
+                  <div class="donor-name">${escapeHtml(donation.username)}</div>
+                  <div class="donation-amount">${donation.total.toFixed(2)} ${currencySymbol}</div>
+                </div>
+              </div>
+        `;
+
+        const container = document.getElementById('donationDisplay');
+        container.innerHTML = '';
+        container.appendChild(donationElement);
+
+        // Переход к следующему донату
+        setTimeout(() => {
+            currentIndex = (currentIndex + 1) % donations.length;
+
+            if (currentIndex === 0) {
+                isDisplaying = false;
+                setTimeout(() => {
+                    if (donations.length > 0 && !isDisplaying) {
+                        displayNextDonation();
+                    }
+                }, 2000);
+            } else {
+                displayNextDonation();
+                }
+            }, CONFIG.displayDuration);
+        }
+
+            // Добавляем сообщение, если оно есть
+            //if (donation.message && donation.message.trim()) {
+                //html += `<div class="donation-message">${escapeHtml(donation.message)}</div>`;
+            //}
+
+        // Функция экранирования HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Инициализация
+        async function init() {
+            console.log('Initializing donation widget...');
+            
+            // Первая загрузка
+            await fetchDonations();
+
+            // Периодическое обновление
+            setInterval(fetchDonations, CONFIG.updateInterval);
+        }
+
+        // Запуск при загрузке страницы
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
