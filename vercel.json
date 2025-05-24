@@ -1,1 +1,23 @@
-
+{
+  "functions": {
+    "api/donations.js": {
+      "maxDuration": 10
+    },
+    "api/donations-simple.js": {
+      "maxDuration": 10
+    },
+    "api/token-manager.js": {
+      "maxDuration": 10
+    }
+  },
+"rewrites": [
+  {
+    "source": "/",
+    "destination": "/index.html"
+  },
+  {
+    "source": "/debug",
+    "destination": "/debug.html"
+  }
+]
+}
