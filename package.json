@@ -1,1 +1,15 @@
-
+{
+  "name": "donation-alerts-widget",
+  "version": "1.0.0",
+  "description": "DonationAlerts widget for OBS",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}
