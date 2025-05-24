@@ -1,1 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Donation Alerts API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        
+        .debug-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        
+        h1, h2 {
+            color: #4CAF50;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .error {
+            background: #f44336;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #4CAF50;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .info {
+            background: #2196F3;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        pre {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .donation-preview {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid #333;
+        }
+        
+        .money-icon {
+            font-size: 32px;
+        }
+        
+        .donor-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .donation-amount {
+            font-size: 18px;
+            color: #FFD700;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+        
+        .status-indicator.online {
+            background: #4CAF50;
+        }
+        
+        .status-indicator.offline {
+            background: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug - DonationAlerts Widget</h1>
+    
+    <div class="debug-section">
+        <h2>1. Проверка API эндпоинтов</h2>
+        <button onclick="testEndpoint('/api/donations-simple')">Тест /api/donations-simple</button>
+        <button onclick="testEndpoint('/api/donations')">Тест /api/donations</button>
+        <div id="api-result"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>2. Статус соединения</h2>
+        <div id="connection-status">
+            <p>API Status: <span id="api-status">Проверка...</span><span class="status-indicator" id="status-indicator"></span></p>
+        </div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>3. Последние донаты</h2>
+        <button onclick="loadDonations()">Загрузить донаты</button>
+        <div id="donations-list"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>4. Логи</h2>
+        <button onclick="clearLogs()">Очистить логи</button>
+        <pre id="logs"></pre>
+    </div>
 
+    <script>
+        let logs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            logs.push({ message: logMessage, type });
+            updateLogs();
+        }
+        
+        function updateLogs() {
+            const logsContainer = document.getElementById('logs');
+            logsContainer.innerHTML = logs.map(log => {
+                const color = log.type === 'error' ? '#f44336' : 
+                             log.type === 'success' ? '#4CAF50' : '#2196F3';
+                return `<span style="color: ${color}">${log.message}</span>`;
+            }).join('\n');
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+        
+        function clearLogs() {
+            logs = [];
+            updateLogs();
+        }
+        
+        async function testEndpoint(endpoint) {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '<div class="info">Тестирование ' + endpoint + '...</div>';
+            log(`Тестирование эндпоинта: ${endpoint}`);
+            
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✓ ${endpoint} работает корректно`, 'success');
+                    resultDiv.innerHTML = `
+                        <div class="success">✓ Эндпоинт работает!</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    log(`✗ ${endpoint} вернул ошибку: ${response.status}`, 'error');
+                    resultDiv.innerHTML = `
+                        <div class="error">✗ Ошибка ${response.status}</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                log(`✗ Ошибка при запросе к ${endpoint}: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="error">✗ Ошибка сети или сервера</div>
+                    <pre>${error.message}</pre>
+                `;
+            }
+        }
+        
+        async function checkAPIStatus() {
+            const statusSpan = document.getElementById('api-status');
+            const indicator = document.getElementById('status-indicator');
+            
+            try {
+                const response = await fetch('/api/donations-simple');
+                if (response.ok) {
+                    statusSpan.textContent = 'Онлайн';
+                    statusSpan.style.color = '#4CAF50';
+                    indicator.className = 'status-indicator online';
+                    log('API доступен', 'success');
+                } else {
+                    statusSpan.textContent = 'Ошибка ' + response.status;
+                    statusSpan.style.color = '#f44336';
+                    indicator.className = 'status-indicator offline';
+                    log(`API недоступен: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                statusSpan.textContent = 'Офлайн';
+                statusSpan.style.color = '#f44336';
+                indicator.className = 'status-indicator offline';
+                log(`Ошибка соединения: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadDonations() {
+            const listDiv = document.getElementById('donations-list');
+            listDiv.innerHTML = '<div class="info">Загрузка донатов...</div>';
+            log('Загрузка донатов...');
+            
+            try {
+                const response = await fetch('/api/donations-simple');
+                const data = await response.json();
+                
+                if (response.ok && data.data) {
+                    const donations = data.data.filter(d => d.is_shown === 1);
+                    log(`Загружено ${donations.length} донатов`, 'success');
+                    
+                    if (donations.length === 0) {
+                        listDiv.innerHTML = '<div class="info">Нет донатов для отображения</div>';
+                    } else {
+                        listDiv.innerHTML = donations.slice(0, 5).map(donation => {
+                            const currencySymbols = {
+                                'USD': '$', 'EUR': '€', 'RUB': '₽',
+                                'UAH': '₴', 'BRL': 'R$', 'TRY': '₺', 'KZT': '₸'
+                            };
+                            const symbol = currencySymbols[donation.currency] || donation.currency;
+                            
+                            return `
+                                <div class="donation-preview">
+                                    <div class="money-icon">💰</div>
+                                    <div>
+                                        <div class="donor-name">${donation.username}</div>
+                                        <div class="donation-amount">${donation.amount} ${symbol}</div>
+                                        ${donation.message ? `<div style="color: #ccc; font-style: italic;">"${donation.message}"</div>` : ''}
+                                        <div style="color: #666; font-size: 12px;">${new Date(donation.created_at).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        
+                        if (donations.length > 5) {
+                            listDiv.innerHTML += `<div class="info">И еще ${donations.length - 5} донатов...</div>`;
+                        }
+                    }
+                } else {
+                    log('Ошибка при загрузке донатов', 'error');
+                    listDiv.innerHTML = `
+                        <div class="error">Ошибка загрузки</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                log(`Ошибка: ${error.message}`, 'error');
+                listDiv.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        // Проверка при загрузке
+        window.addEventListener('load', () => {
+            log('Страница загружена');
+            checkAPIStatus();
+            
+            // Проверка статуса каждые 30 секунд
+            setInterval(checkAPIStatus, 30000);
+        });
+    </script>
+</body>
+</html>
