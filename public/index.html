@@ -245,7 +245,7 @@
 
         donationElement.innerHTML = `
             <div class="donation-content">
-                <div class="money-icon">💰</div>
+                <div class="money-icon">${donation.type === 'twitch' ? '⭐' : '💰'}</div>
                 <div class="donation-info">
                   <div class="donor-name">${escapeHtml(donation.username)}</div>
                   <div class="donation-amount">${escapeHtml(donation.message)}</div>
