@@ -248,7 +248,7 @@
                 <div class="money-icon">💰</div>
                 <div class="donation-info">
                   <div class="donor-name">${escapeHtml(donation.username)}</div>
-                  <div class="donation-amount">${donation.total.toFixed(2)} ${currencySymbol}</div>
+                  <div class="donation-amount">${escapeHtml(donation.message)}</div>
                 </div>
               </div>
         `;
