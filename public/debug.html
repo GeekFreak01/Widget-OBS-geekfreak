@@ -282,7 +282,31 @@
                 listDiv.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
             }
         }
+        async function loadTwitchEvents() {
+            const container = document.getElementById('twitch-events');
+            container.innerHTML = '<li>Загрузка...</li>';
+            log('Загрузка Twitch событий...');
+
+            try {
+                const res = await fetch('/api/feed');
+                const json = await res.json();
+
+                if (json.twitchDebug && json.twitchDebug.length > 0) {
+                    container.innerHTML = json.twitchDebug.map(ev => `
+                        <li><strong>${ev.username}</strong>: ${ev.message}</li>
+                    `).join('');
+                    log(`Загружено ${json.twitchDebug.length} Twitch событий`, 'success');
+                } else {
+                    container.innerHTML = '<li>Нет событий от Twitch</li>';
+                    log('Twitch событий нет', 'info');
+                }
+            } catch (e) {
+                container.innerHTML = `<li style="color: red;">Ошибка: ${e.message}</li>`;
+                log(`Ошибка при загрузке Twitch событий: ${e.message}`, 'error');
+            }
+        }
         
+
         // Проверка при загрузке
         window.addEventListener('load', () => {
             log('Страница загружена');
