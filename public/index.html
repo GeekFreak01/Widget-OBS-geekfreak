@@ -235,38 +235,35 @@
                 isDisplaying = false;
                 return;
             }
-
+    
             isDisplaying = true;
             const donation = donations[currentIndex];
-    
+            const icon = donation.type === 'twitch' ? '⭐' : '💰';
+            const name = escapeHtml(donation.username);
+            const message = escapeHtml(donation.message);
+
             const container = document.getElementById('donationDisplay');
-    
-            // Очищаем только содержимое, а не сам контейнер
-            let donationElement = container.querySelector('.donation-container');
-            if (!donationElement) {
-                donationElement = document.createElement('div');
-                donationElement.className = 'donation-container';
-                container.appendChild(donationElement);
+
+            // Если контейнер не существует — создаём
+            let wrapper = container.querySelector('.donation-container');
+            if (!wrapper) {
+                wrapper = document.createElement('div');
+                wrapper.className = 'donation-container';
+                container.appendChild(wrapper);
             }
 
-            // Сброс и повтор анимации
-            donationElement.classList.remove('donation-content');
-            void donationElement.offsetWidth; // force reflow
-            donationElement.classList.add('donation-content');
-
-            const icon = donation.type === 'twitch' ? '⭐' : '💰';
-            const message = escapeHtml(donation.message);
-            const name = escapeHtml(donation.username);
-
-            donationElement.innerHTML = `
-                <div class="donation-content">
-                    <div class="money-icon">${icon}</div>
-                    <div class="donation-info">
-                        <div class="donor-name">${name}</div>
-                        <div class="donation-amount">${message}</div>
-                    </div>
+            // Заменяем только контент (с fade-эффектом)
+            wrapper.innerHTML = ''; // очищаем
+            const content = document.createElement('div');
+            content.className = 'donation-content';
+            content.innerHTML = `
+                <div class="money-icon">${icon}</div>
+                <div class="donation-info">
+                    <div class="donor-name">${name}</div>
+                    <div class="donation-amount">${message}</div>
                 </div>
             `;
+            wrapper.appendChild(content);
 
             setTimeout(() => {
                 currentIndex = (currentIndex + 1) % donations.length;
@@ -283,6 +280,7 @@
                 }
             }, CONFIG.displayDuration);
         }
+
 
             // Добавляем сообщение, если оно есть
             //if (donation.message && donation.message.trim()) {
