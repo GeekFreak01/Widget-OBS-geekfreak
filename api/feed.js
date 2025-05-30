@@ -1,31 +1,70 @@
-const { getEvents: getTwitchEvents } = require('./twitch-subs');
+const crypto = require('crypto');
+
+let recentTwitchEvents = []; // временное хранилище на 10 событий
+
+function isValidTwitchRequest(req) {
+  const messageId = req.headers['twitch-eventsub-message-id'];
+  const timestamp = req.headers['twitch-eventsub-message-timestamp'];
+  const signature = req.headers['twitch-eventsub-message-signature'];
+  const secret = process.env.TWITCH_WEBHOOK_SECRET;
+
+  if (!messageId || !timestamp || !signature || !secret) return false;
+
+  const hmacMessage = messageId + timestamp + JSON.stringify(req.body);
+  const computedHmac = 'sha256=' + crypto.createHmac('sha256', secret).update(hmacMessage).digest('hex');
+
+  return crypto.timingSafeEqual(Buffer.from(computedHmac), Buffer.from(signature));
+}
 
 module.exports = async (req, res) => {
-  const twitch = getTwitchEvents();
+  if (req.method !== 'POST') return res.status(405).end('Method Not Allowed');
 
-  let donations = [];
-  try {
-    const r = await fetch(`${process.env.FEED_DONATION_URL || 'https://widget-obs-geekfreak.vercel.app'}/api/donations`);
-    const json = await r.json();
-    donations = json.data.map(d => ({
-      username: d.username,
-      message: `${d.total.toFixed(2)} ${d.currency}`,
-      type: 'donation'
-    }));
-  } catch (e) {
-    console.error('Donation fetch error:', e);
+  const body = req.body;
+
+  // ✅ Важно: Twitch Verification Challenge — до проверки подписи!
+  if (body && body.challenge) {
+    console.log('🔐 Received challenge:', body.challenge);
+    return res.status(200).send(body.challenge); // plain text, не JSON!
   }
 
-  const twitchFormatted = twitch.map(e => ({
-    username: e.username,
-    message: e.message,
-    type: 'twitch'
-  }));
+  // 🔒 Проверка подписи
+  if (!isValidTwitchRequest(req)) {
+    console.warn('❌ Invalid Twitch signature');
+    return res.status(403).json({ error: 'Invalid signature' });
+  }
 
-  const all = [...donations, ...twitchFormatted];
+  // 📥 Обработка события
+  if (body.subscription && body.event) {
+    const { subscription, event } = body;
+    console.log('🔔 Twitch event received:', subscription.type, event);
 
-  // перемешаем для динамики (можно сортировать по времени, если надо)
-  all.sort(() => Math.random() - 0.5);
+    let message = null;
 
-  res.status(200).json({ data: all });
+    if (subscription.type === 'channel.subscribe') {
+      const months = event.cumulative_months || 1;
+      message = `${event.user_name} - (${months}) мес.`;
+    } else if (subscription.type === 'channel.subscription.gift') {
+      const count = event.total || 1;
+      message = `${event.user_name} - (${count}) шт.`;
+    }
+
+    if (message) {
+      recentTwitchEvents.unshift({
+        username: event.user_name,
+        message,
+        timestamp: new Date().toISOString()
+      });
+
+      // оставим только последние 10
+      recentTwitchEvents = recentTwitchEvents.slice(0, 10);
+      console.log('✅ Event saved:', event.user_name, message);
+    }
+
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(400).json({ error: 'Invalid payload' });
 };
+
+// Для получения с фронта
+module.exports.getEvents = () => recentTwitchEvents;
