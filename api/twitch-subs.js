@@ -23,6 +23,10 @@ module.exports = async (req, res) => {
 
   // ✅ Twitch webhook verification challenge — ОБЯЗАТЕЛЬНО ДО проверки подписи
   if (body && body.challenge) {
+    console.log('🔥 Входящий запрос от Twitch:', {
+      headers: req.headers,
+      body: req.body
+    });
     return res.status(200).send(body.challenge); // plain text, не JSON
   }
 
