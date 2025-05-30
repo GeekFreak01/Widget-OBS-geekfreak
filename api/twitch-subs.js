@@ -8,6 +8,8 @@ function isValidTwitchRequest(req) {
   const signature = req.headers['twitch-eventsub-message-signature'];
   const secret = process.env.TWITCH_WEBHOOK_SECRET;
 
+  if (!messageId || !timestamp || !signature || !secret) return false;
+
   const hmacMessage = messageId + timestamp + JSON.stringify(req.body);
   const computedHmac = 'sha256=' + crypto.createHmac('sha256', secret).update(hmacMessage).digest('hex');
 
@@ -17,14 +19,19 @@ function isValidTwitchRequest(req) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).end('Method Not Allowed');
 
-  // Проверка подписи Twitch
-  if (!isValidTwitchRequest(req)) return res.status(403).json({ error: 'Invalid signature' });
-
   const body = req.body;
 
-  // Twitch webhook verification challenge
-  if (body.challenge) return res.status(200).send(body.challenge);
+  // ✅ Twitch webhook verification challenge — ОБЯЗАТЕЛЬНО ДО проверки подписи
+  if (body && body.challenge) {
+    return res.status(200).send(body.challenge); // plain text, не JSON
+  }
 
+  // 🔒 Проверка подписи Twitch
+  if (!isValidTwitchRequest(req)) {
+    return res.status(403).json({ error: 'Invalid signature' });
+  }
+
+  // 📥 Обработка события
   if (body.subscription && body.event) {
     const { subscription, event } = body;
     let message = null;
@@ -44,7 +51,6 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString()
       });
 
-      // оставим только последние 10
       recentTwitchEvents = recentTwitchEvents.slice(0, 10);
     }
 
