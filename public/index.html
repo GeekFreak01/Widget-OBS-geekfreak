@@ -263,6 +263,7 @@
             // Заменяем только контент (с fade-эффектом)
             wrapper.innerHTML = ''; // очищаем
             const content = document.createElement('div');
+            let middleSeparator = donation.type === 'twitch' ? '' : ' — ';
             content.className = 'donation-content';
             content.innerHTML = `
                 <div class="money-icon">${icon}</div>
