@@ -5,68 +5,48 @@ module.exports = async (req, res) => {
     return res.status(405).send('Method Not Allowed');
   }
 
+  // Получаем события Twitch из памяти
   const twitch = getTwitchEvents();
 
   let donations = [];
   try {
-    const r = await fetch(`${process.env.FEED_DONATION_URL || 'https://widget-obs-geekfreak.vercel.app'}/api/donations`);
+    const r = await fetch(
+      `${process.env.FEED_DONATION_URL || 'https://widget-obs-geekfreak.vercel.app'}/api/donations`
+    );
     const json = await r.json();
-    donations = json.data.map(d => ({
+    donations = json.data.map((d) => ({
       username: d.username,
       message: `${d.total.toFixed(2)} ${d.currency}`,
       type: 'donation'
     }));
   } catch (e) {
-    console.error('Donation fetch error:', e);
+    console.error('❌ Donation fetch error:', e);
   }
 
-  const twitchFormatted = twitch.map(e => ({
-    username: e.username,
-    message: e.message,
-    type: 'twitch'
-  }));
-
-  const all = [...donations, ...twitchFormatted];
-
-  // перемешаем для динамики (можно сортировать по времени)
-  all.sort(() => Math.random() - 0.5);
-
-  res.status(200).json({ data: all });
-};
-
-const { getEvents: getTwitchEvents } = require('./twitch-subs');
-
-module.exports = async (req, res) => {
-  if (req.method !== 'GET') {
-    return res.status(405).send('Method Not Allowed');
-  }
-
-  const twitch = getTwitchEvents();
-
-  let donations = [];
+  // Обработка Twitch событий с проверкой
+  const twitchFormatted = [];
   try {
-    const r = await fetch(`${process.env.FEED_DONATION_URL || 'https://widget-obs-geekfreak.vercel.app'}/api/donations`);
-    const json = await r.json();
-    donations = json.data.map(d => ({
-      username: d.username,
-      message: `${d.total.toFixed(2)} ${d.currency}`,
-      type: 'donation'
-    }));
+    for (const e of twitch) {
+      if (e && e.username && e.message) {
+        twitchFormatted.push({
+          username: e.username,
+          message: e.message,
+          type: 'twitch'
+        });
+      }
+    }
   } catch (e) {
-    console.error('Donation fetch error:', e);
+    console.error('❌ Twitch formatting error:', e);
   }
 
-  const twitchFormatted = twitch.map(e => ({
-    username: e.username,
-    message: e.message,
-    type: 'twitch'
-  }));
-
+  // Объединение всех событий
   const all = [...donations, ...twitchFormatted];
-  all.sort(() => Math.random() - 0.5);
+  all.sort(() => Math.random() - 0.5); // перемешаем
 
-  res.status(200).json({ 
+  // Возвращаем результат с дебагом
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({
     data: all,
-    twitchDebug: twitch // <-- добавим для дебага
+    twitchDebug: twitchFormatted
   });
 };
