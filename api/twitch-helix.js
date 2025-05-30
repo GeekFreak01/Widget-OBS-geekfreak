@@ -14,7 +14,7 @@ module.exports.fetchInitialSubscribers = async () => {
 
     return json.data.map(sub => ({
       username: sub.user_name,
-      message: '(саб текущий)',
+      message: '',
       type: 'twitch'
     }));
   } catch (e) {
