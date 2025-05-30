@@ -1,13 +1,23 @@
 const { getEvents: getTwitchEvents } = require('./twitch-subs');
+const { fetchInitialSubscribers } = require('./twitch-helix');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Получаем события Twitch из памяти
-  const twitch = getTwitchEvents();
+  // 🎯 Получаем события Twitch из памяти
+  const twitchMemory = getTwitchEvents();
 
+  // 📡 Получаем текущих подписчиков из Twitch Helix API
+  let twitchHelix = [];
+  try {
+    twitchHelix = await fetchInitialSubscribers();
+  } catch (e) {
+    console.error('❌ Helix fetch error:', e);
+  }
+
+  // 💰 Получаем донаты
   let donations = [];
   try {
     const r = await fetch(
@@ -23,27 +33,24 @@ module.exports = async (req, res) => {
     console.error('❌ Donation fetch error:', e);
   }
 
-  // Обработка Twitch событий с проверкой
+  // 📦 Объединение всех Twitch событий
   const twitchFormatted = [];
-  try {
-    for (const e of twitch) {
-      if (e && e.username && e.message) {
-        twitchFormatted.push({
-          username: e.username,
-          message: e.message,
-          type: 'twitch'
-        });
-      }
+
+  for (const e of [...twitchMemory, ...twitchHelix]) {
+    if (e && e.username && e.message) {
+      twitchFormatted.push({
+        username: e.username,
+        message: e.message,
+        type: 'twitch'
+      });
     }
-  } catch (e) {
-    console.error('❌ Twitch formatting error:', e);
   }
 
-  // Объединение всех событий
+  // 🎛 Объединяем все источники
   const all = [...donations, ...twitchFormatted];
-  all.sort(() => Math.random() - 0.5); // перемешаем
+  all.sort(() => Math.random() - 0.5); // перемешка
 
-  // Возвращаем результат с дебагом
+  // 📤 Ответ
   res.setHeader('Content-Type', 'application/json');
   res.status(200).json({
     data: all,
