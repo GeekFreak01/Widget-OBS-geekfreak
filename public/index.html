@@ -267,10 +267,14 @@
             content.innerHTML = `
                 <div class="money-icon">${icon}</div>
                 <div class="donation-info">
-                    <div class="donor-name">${name}</div>
-                    <div class="donation-amount">${message}</div>
+                    <div class="donor-name">
+                        <span style="color: #4CAF50;">${name}</span>
+                        —
+                        <span style="color: #FFD700;">${message}</span>
+                    </div>
                 </div>
             `;
+
             wrapper.appendChild(content);
 
             setTimeout(() => {
