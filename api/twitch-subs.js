@@ -51,10 +51,10 @@ module.exports = async (req, res) => {
   }
 
   // Подпись Twitch
-  if (!isValidTwitchRequest(req, rawBody)) {
-    console.warn('❌ Invalid Twitch Signature');
-    return res.status(403).json({ error: 'Invalid signature' });
-  }
+  //if (!isValidTwitchRequest(req, rawBody)) {
+    //console.warn('❌ Invalid Twitch Signature');
+    //return res.status(403).json({ error: 'Invalid signature' });
+  //}
 
   // Twitch событие
   if (body.subscription && body.event) {
