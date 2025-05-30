@@ -63,10 +63,10 @@ module.exports = async (req, res) => {
 
     if (subscription.type === 'channel.subscribe') {
       const months = event.cumulative_months || 1;
-      message = `${event.user_name} - (${months}) мес.`;
+      message = `${event.user_name}`;
     } else if (subscription.type === 'channel.subscription.gift') {
       const count = event.total || 1;
-      message = `${event.user_name} - (${count}) шт.`;
+      message = `${event.user_name}`;
     }
 
     if (message) {
