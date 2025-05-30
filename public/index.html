@@ -20,31 +20,39 @@
         .donation-container {
           position: fixed;
           bottom: 20px;
-          left: 30px; /* отступ от левого края */
-          transform: none; /* отключаем центрирование */
+          left: 30px;
           background-color: rgba(0, 0, 0, 0.9);
           color: white;
-          padding: 15px 30px;
+          padding: 10px 20px;
           border-radius: 10px;
           display: flex;
           align-items: center;
-          justify-content: flex-start; /* 🔁 добавь это */
-          min-width: 300px;
-          max-width: 600px;
+          justify-content: flex-start;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          max-width: 100%;
+          width: auto;
+          min-height: 50px;
           opacity: 1;
         }
 
 
         .donation-content {
-          animation: fadeInOut 5s ease-in-out;
+          animation: fadeText 0.5s ease-in-out;
           display: flex;
           align-items: center;
           gap: 15px;
-          width: 100%;
-          justify-content: flex-start;
         }
 
+        @keyframes fadeText {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
         @keyframes fadeInOut {
             0% {
