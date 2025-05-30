@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 
-let recentTwitchEvents = []; // временное хранилище на 10 событий
+let recentTwitchEvents = [];
 
-function isValidTwitchRequest(req) {
+// HMAC проверка подлинности от Twitch
+function isValidTwitchRequest(req, rawBody) {
   const messageId = req.headers['twitch-eventsub-message-id'];
   const timestamp = req.headers['twitch-eventsub-message-timestamp'];
   const signature = req.headers['twitch-eventsub-message-signature'];
@@ -10,32 +11,52 @@ function isValidTwitchRequest(req) {
 
   if (!messageId || !timestamp || !signature || !secret) return false;
 
-  const hmacMessage = messageId + timestamp + JSON.stringify(req.body);
+  const hmacMessage = messageId + timestamp + rawBody;
   const computedHmac = 'sha256=' + crypto.createHmac('sha256', secret).update(hmacMessage).digest('hex');
 
   return crypto.timingSafeEqual(Buffer.from(computedHmac), Buffer.from(signature));
 }
 
+// Отключаем автоматический bodyParser — нужно Vercel сказать не парсить JSON
+module.exports.config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).end('Method Not Allowed');
-
-  const body = req.body;
-
-  // ✅ Twitch webhook verification challenge — ОБЯЗАТЕЛЬНО ДО проверки подписи
-  if (body && body.challenge) {
-    console.log('🔥 Входящий запрос от Twitch:', {
-      headers: req.headers,
-      body: req.body
-    });
-    return res.status(200).send(body.challenge); // plain text, не JSON
+  if (req.method !== 'POST') {
+    return res.status(405).end('Method Not Allowed');
   }
 
-  // 🔒 Проверка подписи Twitch
-  if (!isValidTwitchRequest(req)) {
+  // Получаем "сырое" тело запроса
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  const rawBody = Buffer.concat(chunks).toString('utf8');
+
+  // Пробуем распарсить JSON
+  let body;
+  try {
+    body = JSON.parse(rawBody);
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  // ⚠️ Верификация challenge ОБЯЗАТЕЛЬНА до подписи
+  if (body && body.challenge) {
+    console.log('⚡ Twitch Challenge Verification:', body.challenge);
+    return res.status(200).send(body.challenge);
+  }
+
+  // Подпись Twitch
+  if (!isValidTwitchRequest(req, rawBody)) {
+    console.warn('❌ Invalid Twitch Signature');
     return res.status(403).json({ error: 'Invalid signature' });
   }
 
-  // 📥 Обработка события
+  // Twitch событие
   if (body.subscription && body.event) {
     const { subscription, event } = body;
     let message = null;
@@ -54,7 +75,6 @@ module.exports = async (req, res) => {
         message,
         timestamp: new Date().toISOString()
       });
-
       recentTwitchEvents = recentTwitchEvents.slice(0, 10);
     }
 
@@ -64,5 +84,5 @@ module.exports = async (req, res) => {
   return res.status(400).json({ error: 'Invalid payload' });
 };
 
-// Для получения с фронта
+// Экспортируем события
 module.exports.getEvents = () => recentTwitchEvents;
